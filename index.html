@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spectrum Pro | Ekvalizér Platforma</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
+
+        :root {
+            --primary: #00f2ff;
+            --secondary: #7000ff;
+            --bg: #050505;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .cyber-font { font-family: 'Orbitron', sans-serif; }
+
+        .glass-panel {
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        .neon-text {
+            text-shadow: 0 0 10px var(--primary), 0 0 20px var(--primary);
+        }
+
+        .visualizer-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: radial-gradient(circle, #111 0%, #000 100%);
+            border-radius: 15px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #visualizerCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sidebar {
+            height: calc(100vh - 40px);
+            overflow-y: auto;
+        }
+
+        .sidebar::-webkit-scrollbar { width: 5px; }
+        .sidebar::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 10px; }
+
+        .eq-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            border: 1px solid transparent;
+        }
+
+        .eq-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .locked-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: inherit;
+            z-index: 10;
+        }
+
+        .btn-gradient {
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            transition: opacity 0.3s;
+        }
+
+        .btn-gradient:hover { opacity: 0.9; }
+
+        .shorts-mode {
+            width: 281px !important;
+            height: 500px !important;
+            margin: 0 auto;
+        }
+
+        .recording-dot {
+            width: 12px;
+            height: 12px;
+            background: red;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="p-5">
+
+    <div class="flex flex-col lg:flex-row gap-6 h-screen">
+        
+        <!-- SIDEBAR -->
+        <div class="lg:w-1/4 flex flex-col gap-4">
+            <div class="glass-panel p-6">
+                <h1 class="cyber-font text-2xl neon-text mb-2">SPECTRUM PRO</h1>
+                <p class="text-gray-400 text-sm">Prémiová vizualizačná platforma</p>
+            </div>
+
+            <div class="glass-panel p-4 sidebar flex-grow">
+                <h3 class="font-bold mb-4 uppercase tracking-widest text-xs text-primary">Knižnica (100 štýlov)</h3>
+                
+                <div id="eqList" class="grid grid-cols-1 gap-3">
+                    <!-- Zadarmo Item -->
+                    <div class="eq-card p-3 border border-green-500/30 bg-green-500/5 rounded-xl flex items-center gap-3" onclick="selectEQ(1)">
+                        <div class="w-12 h-12 bg-gray-800 rounded flex items-center justify-center">
+                            <i class="fas fa-wave-square text-green-400"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-sm">Basic Rainbow Circle</p>
+                            <p class="text-[10px] text-green-400 uppercase">Zadarmo</p>
+                        </div>
+                    </div>
+
+                    <!-- PRO Items (Generované) -->
+                    <div id="proList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="lg:w-2/4 flex flex-col gap-6">
+            <div class="glass-panel p-6 flex-grow flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex gap-4">
+                        <button onclick="setFormat('normal')" id="btnNormal" class="px-4 py-1 rounded-full border border-primary text-xs cyber-font text-primary">YouTube 16:9</button>
+                        <button onclick="setFormat('shorts')" id="btnShorts" class="px-4 py-1 rounded-full border border-gray-600 text-xs cyber-font text-gray-400">Shorts 9:16</button>
+                    </div>
+                    <div id="statusIndicator" class="hidden text-xs uppercase tracking-tighter text-red-500">
+                        <span class="recording-dot"></span> Nahrávanie...
+                    </div>
+                </div>
+
+                <div class="visualizer-container" id="canvasWrapper">
+                    <canvas id="visualizerCanvas"></canvas>
+                    <div id="dropZone" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 border-2 border-dashed border-primary/30 m-4 rounded-xl cursor-pointer">
+                        <i class="fas fa-cloud-upload-alt text-4xl mb-4 text-primary"></i>
+                        <p class="cyber-font text-sm">Nahraj MP3 súbor</p>
+                        <input type="file" id="audioUpload" accept="audio/*" class="hidden">
+                    </div>
+                </div>
+
+                <div class="mt-6 flex flex-wrap gap-4">
+                    <div class="flex-grow glass-panel bg-black/20 p-4 rounded-xl flex items-center gap-4">
+                        <button id="playBtn" class="w-12 h-12 rounded-full bg-primary text-black flex items-center justify-center hover:scale-105 transition">
+                            <i class="fas fa-play"></i>
+                        </button>
+                        <div class="flex-grow">
+                            <p id="trackName" class="text-xs text-gray-400 uppercase mb-1 italic">Žiadna skladba</p>
+                            <div class="h-1 bg-gray-800 rounded-full overflow-hidden">
+                                <div id="progressBar" class="h-full bg-primary w-0"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="recordBtn" class="px-8 btn-gradient rounded-xl cyber-font font-bold text-sm tracking-widest flex items-center gap-2">
+                        <i class="fas fa-video"></i> EXPORTOVAŤ MP4
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT: Balíčky -->
+        <div class="lg:w-1/4 flex flex-col gap-6">
+            <div class="glass-panel p-6 border-l-4 border-secondary">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="cyber-font text-lg text-secondary">PRO BALÍČKY</h3>
+                    <button onclick="resetDatabase()" class="text-[10px] text-gray-500 hover:text-red-500 uppercase">Reset DB</button>
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold">Starter Bundle</span>
+                            <span class="text-primary">29.99€</span>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mb-3">Odomkne 30 prémiových efektov v 4K kvalite.</p>
+                        <button onclick="showCheckout('Starter Bundle', 29.99)" class="w-full py-2 bg-secondary/20 border border-secondary text-secondary rounded-lg text-xs font-bold hover:bg-secondary hover:text-white transition uppercase">Kúpiť</button>
+                    </div>
+
+                    <div class="p-4 bg-primary/10 border border-primary/30 rounded-xl relative overflow-hidden">
+                        <div class="absolute -right-2 -top-2 bg-primary text-black text-[10px] px-4 py-1 rotate-12 font-bold uppercase">BEST</div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold">Unlimited PRO</span>
+                            <span class="text-primary">89.99€</span>
+                        </div>
+                        <p class="text-[10px] text-gray-400 mb-3">Kompletný prístup k 100+ ekvalizérom.</p>
+                        <button onclick="showCheckout('Unlimited PRO', 89.99)" class="w-full py-2 bg-primary text-black rounded-lg text-xs font-bold hover:opacity-80 transition uppercase">Upgrade</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Checkout Modal -->
+            <div id="checkoutModal" class="hidden glass-panel p-6 fixed inset-0 z-50 m-auto w-[400px] h-fit border-primary shadow-[0_0_50px_rgba(0,242,255,0.2)]">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="cyber-font text-xl">PLATBA</h2>
+                    <button onclick="closeCheckout()" class="text-gray-500 hover:text-white"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] uppercase text-gray-400 block mb-1">Karta</label>
+                        <input type="text" placeholder="XXXX XXXX XXXX XXXX" class="w-full bg-black/40 border border-white/10 p-3 rounded text-sm focus:border-primary outline-none">
+                    </div>
+                    <button onclick="fakePurchase()" class="w-full py-4 btn-gradient rounded-xl font-bold mt-4 uppercase">Zaplatiť <span id="checkoutPrice">0.00</span>€</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="mainAudio"></audio>
+
+    <script>
+        // --- KONFIGURÁCIA DATABÁZY (IndexedDB) ---
+        const DB_NAME = 'SpectrumProDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'userSettings';
+        let db;
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+                request.onsuccess = (e) => {
+                    db = e.target.result;
+                    resolve(db);
+                };
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveData(key, value) {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const store = tx.objectStore(STORE_NAME);
+            store.put(value, key);
+            return tx.complete;
+        }
+
+        async function getData(key) {
+            return new Promise((resolve) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const store = tx.objectStore(STORE_NAME);
+                const request = store.get(key);
+                request.onsuccess = () => resolve(request.result);
+            });
+        }
+
+        async function resetDatabase() {
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            tx.objectStore(STORE_NAME).clear();
+            location.reload();
+        }
+
+        // --- APLIKAČNÁ LOGIKA ---
+        let audioCtx, analyser, source, dataArray;
+        const audio = document.getElementById('mainAudio');
+        const canvas = document.getElementById('visualizerCanvas');
+        const ctx = canvas.getContext('2d');
+        const dropZone = document.getElementById('dropZone');
+        const audioUpload = document.getElementById('audioUpload');
+        
+        let animationId;
+        let isPro = false;
+        let selectedStyle = 1;
+        let recording = false;
+        let mediaRecorder;
+        let recordedChunks = [];
+
+        // Generovanie 100 PRO ekvalizérov
+        const proList = document.getElementById('proList');
+        for(let i = 2; i <= 100; i++) {
+            const div = document.createElement('div');
+            div.id = `eq-item-${i}`;
+            div.className = "eq-card p-3 border border-white/10 bg-white/5 rounded-xl flex items-center gap-3 relative mb-3";
+            div.innerHTML = `
+                <div class="locked-overlay"><i class="fas fa-lock text-primary opacity-50"></i></div>
+                <div class="w-12 h-12 bg-gray-900 rounded flex items-center justify-center">
+                    <i class="fas fa-wave-square text-gray-600"></i>
+                </div>
+                <div>
+                    <p class="font-bold text-sm text-gray-400 italic">Style #${i}</p>
+                    <p class="text-[10px] text-primary uppercase">PRO VERZIA</p>
+                </div>
+            `;
+            div.onclick = () => {
+                if (!isPro) {
+                    showCheckout(`Balíček #${i}`, 29.99);
+                } else {
+                    selectEQ(i);
+                }
+            };
+            proList.appendChild(div);
+        }
+
+        // Načítanie stavu z DB pri štarte
+        window.onload = async () => {
+            await initDB();
+            resizeCanvas();
+            
+            const savedPro = await getData('isPro');
+            const savedStyle = await getData('selectedStyle');
+
+            if (savedPro) {
+                unlockAllProUI();
+            }
+            if (savedStyle) {
+                selectEQ(savedStyle, false); // false aby sme nezacyklili ukladanie hneď pri štarte
+            }
+        };
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth * 2;
+            canvas.height = canvas.offsetHeight * 2;
+        }
+        window.onresize = resizeCanvas;
+
+        dropZone.onclick = () => audioUpload.click();
+        audioUpload.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                audio.src = url;
+                document.getElementById('trackName').innerText = file.name;
+                dropZone.classList.add('hidden');
+                initAudio();
+            }
+        };
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                source = audioCtx.createMediaElementSource(audio);
+                source.connect(analyser);
+                analyser.connect(audioCtx.destination);
+                analyser.fftSize = 256;
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+            }
+            draw();
+        }
+
+        function draw() {
+            animationId = requestAnimationFrame(draw);
+            if (!analyser) return;
+            analyser.getByteFrequencyData(dataArray);
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 150;
+
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius + (i * 100), 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(112, 0, 255, ${0.1 - (i * 0.02)})`;
+                ctx.lineWidth = 20;
+                ctx.stroke();
+            }
+
+            const barCount = dataArray.length;
+            for (let i = 0; i < barCount; i++) {
+                const angle = (i / barCount) * Math.PI * 2;
+                const value = dataArray[i];
+                let barHeight = (value / 255) * 80;
+                if (selectedStyle % 2 === 0) barHeight *= 1.5;
+
+                const x1 = centerX + Math.cos(angle) * radius;
+                const y1 = centerY + Math.sin(angle) * radius;
+                const x2 = centerX + Math.cos(angle) * (radius + barHeight);
+                const y2 = centerY + Math.sin(angle) * (radius + barHeight);
+
+                const hue = (i / barCount) * 360 + (selectedStyle * 10);
+                ctx.strokeStyle = `hsl(${hue}, 100%, 60%)`;
+                ctx.lineWidth = 4;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
+                ctx.stroke();
+            }
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, radius - 2, 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+        }
+
+        const playBtn = document.getElementById('playBtn');
+        playBtn.onclick = () => {
+            if (audio.paused) {
+                audio.play();
+                if(audioCtx) audioCtx.resume();
+                playBtn.innerHTML = '<i class="fas fa-pause"></i>';
+            } else {
+                audio.pause();
+                playBtn.innerHTML = '<i class="fas fa-play"></i>';
+            }
+        };
+
+        audio.ontimeupdate = () => {
+            const prog = (audio.currentTime / audio.duration) * 100;
+            document.getElementById('progressBar').style.width = (prog || 0) + '%';
+        };
+
+        function setFormat(mode) {
+            const wrapper = document.getElementById('canvasWrapper');
+            const b1 = document.getElementById('btnNormal');
+            const b2 = document.getElementById('btnShorts');
+            if (mode === 'shorts') {
+                wrapper.classList.add('shorts-mode');
+                b2.className = "px-4 py-1 rounded-full border border-primary text-xs cyber-font text-primary";
+                b1.className = "px-4 py-1 rounded-full border border-gray-600 text-xs cyber-font text-gray-400";
+            } else {
+                wrapper.classList.remove('shorts-mode');
+                b1.className = "px-4 py-1 rounded-full border border-primary text-xs cyber-font text-primary";
+                b2.className = "px-4 py-1 rounded-full border border-gray-600 text-xs cyber-font text-gray-400";
+            }
+            resizeCanvas();
+        }
+
+        function showCheckout(name, price) {
+            document.getElementById('checkoutPrice').innerText = price;
+            document.getElementById('checkoutModal').classList.remove('hidden');
+        }
+
+        function closeCheckout() {
+            document.getElementById('checkoutModal').classList.add('hidden');
+        }
+
+        async function fakePurchase() {
+            const btn = document.querySelector('#checkoutModal button');
+            btn.innerText = "OVEROVANIE...";
+            setTimeout(async () => {
+                isPro = true;
+                await saveData('isPro', true);
+                unlockAllProUI();
+                alert("Všetko odomknuté a uložené v databáze!");
+                closeCheckout();
+            }, 1000);
+        }
+
+        function unlockAllProUI() {
+            isPro = true;
+            document.querySelectorAll('.locked-overlay').forEach(el => el.remove());
+            document.querySelectorAll('.eq-card').forEach(card => {
+                card.classList.remove('bg-white/5');
+                card.classList.add('bg-primary/5');
+                const icon = card.querySelector('i.fa-wave-square');
+                if(icon) icon.classList.replace('text-gray-600', 'text-primary');
+            });
+        }
+
+        async function selectEQ(id, shouldSave = true) {
+            selectedStyle = id;
+            if (shouldSave) {
+                await saveData('selectedStyle', id);
+            }
+            
+            document.querySelectorAll('.eq-card').forEach(c => c.style.borderColor = 'transparent');
+            
+            let targetCard;
+            if (id === 1) {
+                targetCard = document.querySelector('[onclick="selectEQ(1)"]');
+            } else {
+                targetCard = document.getElementById(`eq-item-${id}`);
+            }
+            
+            if (targetCard) {
+                targetCard.style.borderColor = 'var(--primary)';
+            }
+        }
+
+        // Nahrávanie (Zjednodušené)
+        const recordBtn = document.getElementById('recordBtn');
+        recordBtn.onclick = () => {
+            if (!recording) startRecording();
+            else stopRecording();
+        };
+
+        function startRecording() {
+            recordedChunks = [];
+            const stream = canvas.captureStream(60);
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `spectrum-pro-export.webm`;
+                a.click();
+            };
+            mediaRecorder.start();
+            recording = true;
+            recordBtn.innerHTML = '<i class="fas fa-stop"></i> ZASTAVIŤ EXPORT';
+            document.getElementById('statusIndicator').classList.remove('hidden');
+            audio.play();
+        }
+
+        function stopRecording() {
+            mediaRecorder.stop();
+            recording = false;
+            recordBtn.innerHTML = '<i class="fas fa-video"></i> EXPORTOVAŤ MP4';
+            document.getElementById('statusIndicator').classList.add('hidden');
+        }
+
+    </script>
+</body>
+</html>
