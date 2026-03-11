@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spectrum Pro | Všetko Odomknuté</title>
+    <title>Spectrum Pro | Vlastné Pozadie</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -36,7 +36,7 @@
             position: relative;
             width: 100%;
             height: 500px;
-            background: radial-gradient(circle, #111 0%, #000 100%);
+            background: #000;
             border-radius: 15px;
             overflow: hidden;
             display: flex;
@@ -47,6 +47,7 @@
         #visualizerCanvas {
             width: 100%;
             height: 100%;
+            z-index: 10;
         }
 
         .btn-gradient {
@@ -105,9 +106,22 @@
         
         <!-- SIDEBAR -->
         <div class="lg:w-1/4 flex flex-col gap-4">
-            <div class="glass-panel p-6">
+            <div class="glass-panel p-6 text-center">
                 <h1 class="cyber-font text-2xl text-cyan-400 mb-2 tracking-tighter">SPECTRUM <span class="text-white">PRO</span></h1>
-                <p class="text-gray-400 text-xs">Všetky ekvalizéry sú ZADARMO</p>
+                <p class="text-gray-400 text-xs">Vlastné pozadie a vizuály</p>
+            </div>
+
+            <div class="glass-panel p-4 flex flex-col gap-4">
+                <h3 class="font-bold uppercase text-[10px] text-primary tracking-widest text-center">Nastavenia obrazu</h3>
+                <div class="flex flex-col gap-2">
+                    <button onclick="document.getElementById('bgUpload').click()" class="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold border border-white/10 transition flex items-center justify-center gap-2">
+                        <i class="fas fa-image"></i> NAHRAŤ POZADIE (16:9)
+                    </button>
+                    <button id="clearBgBtn" class="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] font-bold border border-red-500/20 hidden transition" onclick="clearBg()">
+                        VYMAZAŤ POZADIE
+                    </button>
+                    <input type="file" id="bgUpload" accept="image/*" class="hidden">
+                </div>
             </div>
 
             <div class="glass-panel p-4 sidebar flex-grow">
@@ -124,11 +138,11 @@
                 
                 <!-- Export Progress Overlay -->
                 <div id="exportOverlay" class="progress-overlay hidden">
-                    <div class="cyber-font text-xl text-primary mb-4 animate-pulse">NAHRÁVAM REAKCIU NA HUDBU...</div>
+                    <div class="cyber-font text-xl text-primary mb-4 animate-pulse">EXPORTUJEM VIDEO S POZADÍM...</div>
                     <div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
                         <div id="exportBar" class="h-full bg-primary w-0 transition-all duration-300"></div>
                     </div>
-                    <p id="exportStatus" class="text-xs text-gray-400 mt-2 uppercase tracking-widest">Video bude obsahovať hudbu aj vizuál</p>
+                    <p id="exportStatus" class="text-xs text-gray-400 mt-2 uppercase tracking-widest">Video obsahuje hudbu, vizuál aj pozadie</p>
                 </div>
 
                 <div class="flex justify-between items-center mb-4">
@@ -141,10 +155,10 @@
 
                 <div class="visualizer-container" id="canvasWrapper">
                     <canvas id="visualizerCanvas"></canvas>
-                    <div id="dropZone" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 border-2 border-dashed border-primary/30 m-4 rounded-xl cursor-pointer hover:bg-black/60 transition">
+                    <div id="dropZone" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 border-2 border-dashed border-primary/30 m-4 rounded-xl cursor-pointer hover:bg-black/60 transition z-20">
                         <i class="fas fa-music text-4xl mb-4 text-primary"></i>
                         <p class="cyber-font text-sm">VLOŽTE SKLADBU</p>
-                        <p class="text-[10px] text-gray-500 mt-2 italic">Všetky vizuálne štýly sú odomknuté</p>
+                        <p class="text-[10px] text-gray-500 mt-2 italic">MP3 sa spojí s vaším pozadím</p>
                         <input type="file" id="audioUpload" accept="audio/*" class="hidden">
                     </div>
                 </div>
@@ -176,12 +190,15 @@
         const STORE_NAME = 'userSettings';
         let db, audioCtx, analyser, source, dataArray, animationId;
         let selectedStyle = 1;
+        let bgImage = null;
 
         const canvas = document.getElementById('visualizerCanvas');
         const ctx = canvas.getContext('2d');
         const audio = document.getElementById('mainAudio');
         const audioUpload = document.getElementById('audioUpload');
         const dropZone = document.getElementById('dropZone');
+        const bgUpload = document.getElementById('bgUpload');
+        const clearBgBtn = document.getElementById('clearBgBtn');
 
         // IndexedDB
         async function initDB() {
@@ -220,11 +237,46 @@
 
             const s = await load('style'); 
             selectEQ(s || 1);
+
+            // Obnovenie pozadia z pamäte ak existuje
+            const savedBg = await load('userBackground');
+            if(savedBg) {
+                const img = new Image();
+                img.onload = () => {
+                    bgImage = img;
+                    clearBgBtn.classList.remove('hidden');
+                };
+                img.src = savedBg;
+            }
         };
 
         function resize() {
             canvas.width = canvas.offsetWidth * 2;
             canvas.height = canvas.offsetHeight * 2;
+        }
+
+        // Nahrávanie pozadia
+        bgUpload.onchange = e => {
+            const f = e.target.files[0];
+            if(f) {
+                const reader = new FileReader();
+                reader.onload = event => {
+                    const img = new Image();
+                    img.onload = () => {
+                        bgImage = img;
+                        save('userBackground', event.target.result);
+                        clearBgBtn.classList.remove('hidden');
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(f);
+            }
+        };
+
+        function clearBg() {
+            bgImage = null;
+            save('userBackground', null);
+            clearBgBtn.classList.add('hidden');
         }
 
         dropZone.onclick = () => audioUpload.click();
@@ -245,7 +297,7 @@
                 source = audioCtx.createMediaElementSource(audio);
                 source.connect(analyser);
                 analyser.connect(audioCtx.destination);
-                analyser.fftSize = 512; // Viac detailov pre plynulejšiu reakciu
+                analyser.fftSize = 512;
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
             }
             if (!animationId) draw();
@@ -253,20 +305,38 @@
 
         function draw() {
             animationId = requestAnimationFrame(draw);
+            
+            // Vymazanie plátna
+            ctx.clearRect(0,0,canvas.width,canvas.height);
+
+            // Vykreslenie pozadia
+            if(bgImage) {
+                // Zachovanie pomeru strán pri vykresľovaní obrázka
+                const scale = Math.max(canvas.width / bgImage.width, canvas.height / bgImage.height);
+                const x = (canvas.width / 2) - (bgImage.width / 2) * scale;
+                const y = (canvas.height / 2) - (bgImage.height / 2) * scale;
+                ctx.drawImage(bgImage, x, y, bgImage.width * scale, bgImage.height * scale);
+                
+                // Jemné stmavenie obrázka aby ekvalizér vynikol
+                ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+            } else {
+                // Predvolené tmavé pozadie ak nie je obrázok
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0,0,canvas.width,canvas.height);
+            }
+
             if(!analyser) return;
             analyser.getByteFrequencyData(dataArray);
-            ctx.clearRect(0,0,canvas.width,canvas.height);
             
             const cx = canvas.width/2;
             const cy = canvas.height/2;
             const r = 150;
 
-            // Reakcia na hudbu
+            // Vizualizácia ekvalizéra
             for(let i=0; i<dataArray.length; i++) {
                 const angle = (i/dataArray.length) * Math.PI * 2;
                 const val = dataArray[i];
-                
-                // Variabilita výšky podľa vybraného štýlu a hlasitosti
                 const h = (val/255) * (100 + (selectedStyle % 10) * 15);
                 
                 ctx.beginPath();
@@ -274,20 +344,19 @@
                 ctx.lineWidth = 4;
                 ctx.lineCap = 'round';
                 
-                // Vykresľovanie čiar reagujúcich na frekvenciu
                 ctx.moveTo(cx + Math.cos(angle)*r, cy + Math.sin(angle)*r);
                 ctx.lineTo(cx + Math.cos(angle)*(r+h), cy + Math.sin(angle)*(r+h));
                 ctx.stroke();
             }
             
-            // Stredový efekt reagujúci na basy (priemer prvých frekvencií)
+            // Stredový pulzujúci efekt
             let bass = 0;
             for(let i=0; i<10; i++) bass += dataArray[i];
             bass = bass / 10;
             
             ctx.beginPath();
             ctx.arc(cx, cy, r - 5 + (bass/255)*10, 0, Math.PI*2);
-            ctx.fillStyle = `rgba(0, 242, 255, ${(bass/255)*0.2})`;
+            ctx.fillStyle = `rgba(0, 242, 255, ${(bass/255)*0.3})`;
             ctx.fill();
         }
 
@@ -302,7 +371,7 @@
             document.getElementById('statusTag').innerText = `Štýl ${id} Aktívny (FREE)`;
         }
 
-        // --- AUTOMATICKÝ EXPORT SO ZVUKOM A REAKCIOU ---
+        // --- AUTOMATICKÝ EXPORT ---
         const autoExportBtn = document.getElementById('autoExportBtn');
         autoExportBtn.onclick = async () => {
             if(!audio.src) return alert("Najprv nahraj hudbu!");
@@ -311,18 +380,15 @@
             const bar = document.getElementById('exportBar');
             overlay.classList.remove('hidden');
             
-            // Zabezpečíme, že audioCtx beží
             if (audioCtx.state === 'suspended') await audioCtx.resume();
 
-            // Stream z Canvasu (60 FPS)
             const canvasStream = canvas.captureStream(60);
-            
-            // Stream z Audia (priamo z uzla, ktorý analyzujeme)
             const audioDest = audioCtx.createMediaStreamDestination();
+            
             source.disconnect();
-            source.connect(analyser); // Analýza pokračuje
-            source.connect(audioDest); // Zvuk ide do nahrávača
-            source.connect(audioCtx.destination); // Zvuk ide do reproduktorov
+            source.connect(analyser);
+            source.connect(audioDest);
+            source.connect(audioCtx.destination);
 
             const combined = new MediaStream([
                 ...canvasStream.getVideoTracks(),
@@ -331,8 +397,8 @@
 
             const recorder = new MediaRecorder(combined, { 
                 mimeType: 'video/webm;codecs=vp9,opus',
-                audioBitsPerSecond: 128000,
-                videoBitsPerSecond: 5000000 
+                audioBitsPerSecond: 192000,
+                videoBitsPerSecond: 8000000 
             });
 
             const chunks = [];
@@ -343,17 +409,15 @@
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `SpectrumPro_Export.mp4`;
+                a.download = `SpectrumPro_Video_Export.mp4`;
                 a.click();
                 overlay.classList.add('hidden');
                 
-                // Upratovanie
                 source.disconnect();
                 source.connect(analyser);
                 analyser.connect(audioCtx.destination);
             };
 
-            // Spustenie od začiatku
             audio.currentTime = 0;
             audio.play();
             recorder.start();
@@ -391,4 +455,5 @@
     </script>
 </body>
 </html>
+
 
