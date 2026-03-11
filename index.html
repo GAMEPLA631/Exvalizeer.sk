@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spectrum Pro | Ekvalizér Platforma</title>
+    <title>Spectrum Pro | Vizualizačná Platforma</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -155,8 +155,8 @@
                         <button onclick="setFormat('normal')" id="btnNormal" class="px-4 py-1 rounded-full border border-primary text-xs cyber-font text-primary">YouTube 16:9</button>
                         <button onclick="setFormat('shorts')" id="btnShorts" class="px-4 py-1 rounded-full border border-gray-600 text-xs cyber-font text-gray-400">Shorts 9:16</button>
                     </div>
-                    <div id="statusIndicator" class="hidden text-xs uppercase tracking-tighter text-red-500">
-                        <span class="recording-dot"></span> Nahrávanie...
+                    <div id="statusIndicator" class="hidden text-xs uppercase tracking-tighter text-red-500 font-bold bg-black/50 px-3 py-1 rounded-full">
+                        <span class="recording-dot"></span> NAHRÁVANIE: <span id="recordTimer">00:00</span>
                     </div>
                 </div>
 
@@ -182,7 +182,7 @@
                         </div>
                     </div>
                     <button id="recordBtn" class="px-8 btn-gradient rounded-xl cyber-font font-bold text-sm tracking-widest flex items-center gap-2">
-                        <i class="fas fa-video"></i> EXPORTOVAŤ MP4
+                        <i class="fas fa-video"></i> EXPORTOVAŤ VIDEO
                     </button>
                 </div>
             </div>
@@ -235,10 +235,10 @@
         </div>
     </div>
 
-    <audio id="mainAudio"></audio>
+    <audio id="mainAudio" crossorigin="anonymous"></audio>
 
     <script>
-        // --- KONFIGURÁCIA DATABÁZY (IndexedDB) ---
+        // --- KONFIGURÁCIA DATABÁZY ---
         const DB_NAME = 'SpectrumProDB';
         const DB_VERSION = 1;
         const STORE_NAME = 'userSettings';
@@ -270,6 +270,7 @@
 
         async function getData(key) {
             return new Promise((resolve) => {
+                if (!db) return resolve(null);
                 const tx = db.transaction(STORE_NAME, 'readonly');
                 const store = tx.objectStore(STORE_NAME);
                 const request = store.get(key);
@@ -297,8 +298,9 @@
         let recording = false;
         let mediaRecorder;
         let recordedChunks = [];
+        let recordStartTime;
+        let recordTimerInterval;
 
-        // Generovanie 100 PRO ekvalizérov
         const proList = document.getElementById('proList');
         for(let i = 2; i <= 100; i++) {
             const div = document.createElement('div');
@@ -315,16 +317,12 @@
                 </div>
             `;
             div.onclick = () => {
-                if (!isPro) {
-                    showCheckout(`Balíček #${i}`, 29.99);
-                } else {
-                    selectEQ(i);
-                }
+                if (!isPro) showCheckout(`Balíček #${i}`, 29.99);
+                else selectEQ(i);
             };
             proList.appendChild(div);
         }
 
-        // Načítanie stavu z DB pri štarte
         window.onload = async () => {
             await initDB();
             resizeCanvas();
@@ -332,12 +330,8 @@
             const savedPro = await getData('isPro');
             const savedStyle = await getData('selectedStyle');
 
-            if (savedPro) {
-                unlockAllProUI();
-            }
-            if (savedStyle) {
-                selectEQ(savedStyle, false); // false aby sme nezacyklili ukladanie hneď pri štarte
-            }
+            if (savedPro) unlockAllProUI();
+            if (savedStyle) selectEQ(savedStyle, false);
         };
 
         function resizeCanvas() {
@@ -466,7 +460,7 @@
                 isPro = true;
                 await saveData('isPro', true);
                 unlockAllProUI();
-                alert("Všetko odomknuté a uložené v databáze!");
+                alert("Platba úspešná! Všetko odomknuté.");
                 closeCheckout();
             }, 1000);
         }
@@ -484,25 +478,13 @@
 
         async function selectEQ(id, shouldSave = true) {
             selectedStyle = id;
-            if (shouldSave) {
-                await saveData('selectedStyle', id);
-            }
-            
+            if (shouldSave) await saveData('selectedStyle', id);
             document.querySelectorAll('.eq-card').forEach(c => c.style.borderColor = 'transparent');
-            
-            let targetCard;
-            if (id === 1) {
-                targetCard = document.querySelector('[onclick="selectEQ(1)"]');
-            } else {
-                targetCard = document.getElementById(`eq-item-${id}`);
-            }
-            
-            if (targetCard) {
-                targetCard.style.borderColor = 'var(--primary)';
-            }
+            let targetCard = (id === 1) ? document.querySelector('[onclick="selectEQ(1)"]') : document.getElementById(`eq-item-${id}`);
+            if (targetCard) targetCard.style.borderColor = 'var(--primary)';
         }
 
-        // Nahrávanie (Zjednodušené)
+        // --- EXPORT SYSTÉM S ČASOVAČOM A ZVUKOM ---
         const recordBtn = document.getElementById('recordBtn');
         recordBtn.onclick = () => {
             if (!recording) startRecording();
@@ -510,30 +492,71 @@
         };
 
         function startRecording() {
+            if (!audio.src) {
+                alert("Najprv nahrajte skladbu!");
+                return;
+            }
+
             recordedChunks = [];
-            const stream = canvas.captureStream(60);
-            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
-            mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
+            const canvasStream = canvas.captureStream(60); 
+            
+            // Zachytenie zvuku z AudioContext
+            const dest = audioCtx.createMediaStreamDestination();
+            source.connect(dest);
+            source.connect(audioCtx.destination); // Aby bolo zvuk stále počuť počas nahrávania
+
+            const combinedStream = new MediaStream([
+                ...canvasStream.getVideoTracks(),
+                ...dest.stream.getAudioTracks()
+            ]);
+
+            mediaRecorder = new MediaRecorder(combinedStream, { 
+                mimeType: 'video/webm;codecs=vp9,opus',
+                videoBitsPerSecond: 5000000 // Vyššia kvalita (5Mbps)
+            });
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+
             mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const blob = new Blob(recordedChunks, { type: 'video/mp4' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `spectrum-pro-export.webm`;
+                a.download = `SpectrumPro_Style${selectedStyle}.mp4`;
                 a.click();
+                clearInterval(recordTimerInterval);
             };
+
+            // Spustenie nahrávania a hudby súčasne
+            audio.currentTime = 0;
+            audio.play();
             mediaRecorder.start();
             recording = true;
+            recordStartTime = Date.now();
+            
+            // UI Update
             recordBtn.innerHTML = '<i class="fas fa-stop"></i> ZASTAVIŤ EXPORT';
             document.getElementById('statusIndicator').classList.remove('hidden');
-            audio.play();
+            
+            // Časovač nahrávania
+            recordTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - recordStartTime) / 1000);
+                const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const secs = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('recordTimer').innerText = `${mins}:${secs}`;
+            }, 1000);
         }
 
         function stopRecording() {
-            mediaRecorder.stop();
-            recording = false;
-            recordBtn.innerHTML = '<i class="fas fa-video"></i> EXPORTOVAŤ MP4';
-            document.getElementById('statusIndicator').classList.add('hidden');
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                audio.pause();
+                recording = false;
+                recordBtn.innerHTML = '<i class="fas fa-video"></i> EXPORTOVAŤ VIDEO';
+                document.getElementById('statusIndicator').classList.add('hidden');
+            }
         }
 
     </script>
