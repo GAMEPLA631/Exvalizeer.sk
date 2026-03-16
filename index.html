@@ -64,10 +64,17 @@
             position: relative;
         }
 
-        .btn-cyber:hover {
+        .btn-cyber:not(:disabled):hover {
             background: #fff;
             transform: translateY(-2px);
             box-shadow: 0 0 20px var(--primary);
+        }
+
+        .btn-cyber:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+            box-shadow: none;
         }
 
         .sidebar {
@@ -111,6 +118,13 @@
         }
 
         .shorts-mode { width: 310px !important; margin: 0 auto; }
+
+        .limit-counter {
+            border-left: 2px solid var(--danger);
+            background: rgba(255, 0, 60, 0.1);
+            padding: 5px 15px;
+            font-size: 10px;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -159,9 +173,14 @@
                         <button onclick="setFormat('normal')" id="btnNormal" class="cyber-font text-[10px] text-primary hover:underline">WIDE_LINK</button>
                         <button onclick="setFormat('shorts')" id="btnShorts" class="cyber-font text-[10px] text-gray-500 hover:text-primary transition">VERTICAL_LINK</button>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
-                        <span class="text-[10px] cyber-font text-accent">SYSTEM_READY</span>
+                    <div class="flex items-center gap-4">
+                        <div id="limitDisplay" class="limit-counter cyber-font text-danger">
+                            EXPORTS: <span id="usedExports">0</span>/10 | RESET: <span id="resetTimer">--:--:--</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+                            <span class="text-[10px] cyber-font text-accent">SYSTEM_READY</span>
+                        </div>
                     </div>
                 </div>
 
@@ -201,10 +220,13 @@
     <script>
         const DB_NAME = 'SpectrumCyberDB';
         const STORE_NAME = 'userSettings';
+        const EXPORT_LIMIT = 10;
+        const RESET_TIME_MS = 3 * 60 * 60 * 1000; // 3 Hodiny
+
         let db, audioCtx, analyser, source, dataArray, animationId;
         let selectedStyle = 1;
         let bgImage = null;
-        let compressor; // Pre kvalitný zvuk bez pukania
+        let compressor;
 
         const canvas = document.getElementById('visualizerCanvas');
         const ctx = canvas.getContext('2d');
@@ -213,11 +235,16 @@
         const dropZone = document.getElementById('dropZone');
         const bgUpload = document.getElementById('bgUpload');
         const clearBgBtn = document.getElementById('clearBgBtn');
+        const autoExportBtn = document.getElementById('autoExportBtn');
 
         async function initDB() {
             return new Promise(res => {
                 const req = indexedDB.open(DB_NAME, 1);
-                req.onupgradeneeded = e => e.target.result.createObjectStore(STORE_NAME);
+                req.onupgradeneeded = e => {
+                    if (!e.target.result.objectStoreNames.contains(STORE_NAME)) {
+                        e.target.result.createObjectStore(STORE_NAME);
+                    }
+                };
                 req.onsuccess = e => { db = e.target.result; res(); };
             });
         }
@@ -229,9 +256,53 @@
             req.onsuccess = () => res(req.result);
         });}
 
+        // Limit Logic
+        async function checkLimits() {
+            const now = Date.now();
+            let exportData = await load('exportData') || { count: 0, resetAt: 0 };
+            
+            if (exportData.resetAt > 0 && now >= exportData.resetAt) {
+                exportData = { count: 0, resetAt: 0 };
+                await save('exportData', exportData);
+            }
+
+            document.getElementById('usedExports').innerText = exportData.count;
+            
+            if (exportData.count >= EXPORT_LIMIT) {
+                autoExportBtn.disabled = true;
+                autoExportBtn.innerText = "LIMIT_EXCEEDED";
+            } else {
+                autoExportBtn.disabled = false;
+                autoExportBtn.innerText = "COMPILE_AND_EXPORT";
+            }
+            return exportData;
+        }
+
+        function updateCountdown() {
+            load('exportData').then(data => {
+                if (!data || data.resetAt === 0) {
+                    document.getElementById('resetTimer').innerText = "00:00:00";
+                    return;
+                }
+                const now = Date.now();
+                const diff = data.resetAt - now;
+                if (diff <= 0) {
+                    checkLimits();
+                    return;
+                }
+                const h = Math.floor(diff / 3600000);
+                const m = Math.floor((diff % 3600000) / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                document.getElementById('resetTimer').innerText = 
+                    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+            });
+        }
+
         window.onload = async () => {
             await initDB();
             resize();
+            await checkLimits();
+            setInterval(updateCountdown, 1000);
             
             const list = document.getElementById('proList');
             for(let i=1; i<=100; i++) {
@@ -291,8 +362,6 @@
                 analyser = audioCtx.createAnalyser();
                 source = audioCtx.createMediaElementSource(audio);
                 
-                // --- HIGH QUALITY AUDIO ENGINE ---
-                // Compressor zabraňuje chrčaniu basov (clippingu)
                 compressor = audioCtx.createDynamicsCompressor();
                 compressor.threshold.setValueAtTime(-15, audioCtx.currentTime);
                 compressor.knee.setValueAtTime(40, audioCtx.currentTime);
@@ -330,13 +399,11 @@
             const cy = canvas.height/2;
             const r = 160;
 
-            // Basy (pre pulzovanie)
             let bass = 0;
             for(let i=0; i<8; i++) bass += dataArray[i];
             bass = bass / 8;
             const bassFactor = 1 + (bass/255) * 0.15;
 
-            // Vykreslenie moderného ekvalizéra
             for(let i=0; i<dataArray.length; i += 2) {
                 const angle = (i/dataArray.length) * Math.PI * 2;
                 const val = dataArray[i];
@@ -349,7 +416,7 @@
 
                 ctx.beginPath();
                 ctx.strokeStyle = `hsl(${(i/dataArray.length)*360 + selectedStyle*40}, 100%, 60%)`;
-                if (i % 4 === 0) ctx.strokeStyle = '#fcee0a'; // Cyberpunk akcent
+                if (i % 4 === 0) ctx.strokeStyle = '#fcee0a';
                 
                 ctx.lineWidth = 3;
                 ctx.lineCap = 'round';
@@ -357,14 +424,12 @@
                 ctx.lineTo(x2, y2);
                 ctx.stroke();
 
-                // Pridanie jemného bodu na konci čiary
                 ctx.beginPath();
                 ctx.arc(x2, y2, 2, 0, Math.PI*2);
                 ctx.fillStyle = "#fff";
                 ctx.fill();
             }
             
-            // Cyberpunk Core v strede
             ctx.beginPath();
             ctx.arc(cx, cy, (r - 10) * bassFactor, 0, Math.PI*2);
             ctx.strokeStyle = '#fcee0a';
@@ -385,8 +450,10 @@
             if(active) active.classList.add('active-style');
         }
 
-        const autoExportBtn = document.getElementById('autoExportBtn');
         autoExportBtn.onclick = async () => {
+            const currentData = await checkLimits();
+            if(currentData.count >= EXPORT_LIMIT) return;
+
             if(!audio.src) return alert("NO_AUDIO_SOURCE_DETECTED");
             const overlay = document.getElementById('exportOverlay');
             const bar = document.getElementById('exportBar');
@@ -410,13 +477,13 @@
 
             const recorder = new MediaRecorder(combined, { 
                 mimeType: 'video/webm;codecs=vp9,opus',
-                audioBitsPerSecond: 320000, // Maximálna kvalita audia
+                audioBitsPerSecond: 320000,
                 videoBitsPerSecond: 12000000 
             });
 
             const chunks = [];
             recorder.ondataavailable = e => chunks.push(e.data);
-            recorder.onstop = () => {
+            recorder.onstop = async () => {
                 const blob = new Blob(chunks, { type: 'video/mp4' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
@@ -428,6 +495,15 @@
                 source.disconnect();
                 source.connect(compressor);
                 analyser.connect(audioCtx.destination);
+
+                // Update Limit after success
+                const updateData = await load('exportData') || { count: 0, resetAt: 0 };
+                updateData.count++;
+                if (updateData.count === 1 || updateData.resetAt === 0) {
+                    updateData.resetAt = Date.now() + RESET_TIME_MS;
+                }
+                await save('exportData', updateData);
+                checkLimits();
             };
 
             audio.currentTime = 0;
@@ -465,4 +541,3 @@
     </script>
 </body>
 </html>
-
