@@ -3,180 +3,193 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Spectrum Pro | Vlastné Pozadie</title>
+    <title>Spectrum Pro | Cyberpunk Audio Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@300;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap');
 
         :root {
-            --primary: #00f2ff;
-            --secondary: #7000ff;
-            --bg: #050505;
-            --glass: rgba(255, 255, 255, 0.05);
+            --primary: #fcee0a; /* Cyberpunk Yellow */
+            --accent: #00ff9f; /* Matrix Green */
+            --danger: #ff003c; /* Cyber Red */
+            --bg: #0d0d0d;
+            --panel: rgba(20, 20, 20, 0.85);
         }
 
         body {
             background-color: var(--bg);
-            color: white;
+            color: #fff;
             font-family: 'Rajdhani', sans-serif;
-            overflow-x: hidden;
+            background-image: 
+                linear-gradient(rgba(252, 238, 10, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(252, 238, 10, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
 
-        .cyber-font { font-family: 'Orbitron', sans-serif; }
+        .cyber-font { font-family: 'Orbitron', sans-serif; text-transform: uppercase; }
 
-        .glass-panel {
-            background: var(--glass);
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
+        .cyber-border {
+            border: 2px solid var(--primary);
+            clip-path: polygon(0 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%);
+            background: var(--panel);
+            box-shadow: 0 0 15px rgba(252, 238, 10, 0.1);
         }
 
         .visualizer-container {
             position: relative;
             width: 100%;
-            height: 500px;
+            height: 550px;
             background: #000;
-            border-radius: 15px;
+            border-radius: 4px;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
+            border: 1px solid rgba(252, 238, 10, 0.3);
         }
 
         #visualizerCanvas {
             width: 100%;
             height: 100%;
-            z-index: 10;
+            filter: drop-shadow(0 0 8px var(--primary));
         }
 
-        .btn-gradient {
-            background: linear-gradient(90deg, var(--secondary), var(--primary));
-            transition: all 0.3s ease;
+        .btn-cyber {
+            background: var(--primary);
+            color: #000;
+            font-weight: 900;
+            clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+            transition: all 0.2s;
+            position: relative;
         }
 
-        .btn-gradient:hover {
-            filter: brightness(1.2);
-            transform: scale(1.02);
+        .btn-cyber:hover {
+            background: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        .sidebar {
+            max-height: calc(100vh - 350px);
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary) transparent;
+        }
+
+        .eq-card {
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .eq-card:hover, .active-style {
+            background: rgba(252, 238, 10, 0.1);
+            border-left-color: var(--primary);
         }
 
         .progress-overlay {
             position: absolute;
             inset: 0;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0, 0, 0, 0.95);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            z-index: 100;
-            border-radius: 15px;
+            z-index: 1000;
         }
 
-        .eq-card {
-            transition: all 0.3s ease;
-            cursor: pointer;
-            border: 1px solid transparent;
+        .glitch-text {
+            animation: glitch 2s infinite;
         }
 
-        .eq-card:hover {
-            border-color: var(--primary);
-            background: rgba(0, 242, 255, 0.05);
+        @keyframes glitch {
+            0% { text-shadow: 2px 0 var(--danger), -2px 0 var(--accent); }
+            25% { text-shadow: -2px 0 var(--danger), 2px 0 var(--accent); }
+            50% { text-shadow: 2px 2px var(--danger), -2px -2px var(--accent); }
+            100% { text-shadow: 0 0 var(--danger), 0 0 var(--accent); }
         }
 
-        .sidebar {
-            height: calc(100vh - 100px);
-            overflow-y: auto;
-        }
-
-        .shorts-mode {
-            width: 281px !important;
-            height: 500px !important;
-            margin: 0 auto;
-        }
-
-        .active-style {
-            border-color: var(--primary) !important;
-            background: rgba(0, 242, 255, 0.1) !important;
-        }
+        .shorts-mode { width: 310px !important; margin: 0 auto; }
     </style>
 </head>
-<body class="p-5">
+<body class="p-4 md:p-8">
 
-    <div class="flex flex-col lg:flex-row gap-6 h-screen">
+    <div class="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-8">
         
-        <!-- SIDEBAR -->
-        <div class="lg:w-1/4 flex flex-col gap-4">
-            <div class="glass-panel p-6 text-center">
-                <h1 class="cyber-font text-2xl text-cyan-400 mb-2 tracking-tighter">SPECTRUM <span class="text-white">PRO</span></h1>
-                <p class="text-gray-400 text-xs">Vlastné pozadie a vizuály</p>
+        <!-- LEFT PANEL -->
+        <div class="lg:w-1/4 flex flex-col gap-6">
+            <div class="cyber-border p-6 relative">
+                <div class="absolute -top-3 -left-2 bg-danger text-white text-[10px] px-2 font-bold cyber-font">CORE_OS</div>
+                <h1 class="cyber-font text-3xl text-primary font-black italic glitch-text">SPECTRUM <span class="text-white">PRO</span></h1>
+                <p class="text-[10px] text-gray-500 tracking-[0.3em] font-bold">BYPASSING AUDIO LIMITS</p>
             </div>
 
-            <div class="glass-panel p-4 flex flex-col gap-4">
-                <h3 class="font-bold uppercase text-[10px] text-primary tracking-widest text-center">Nastavenia obrazu</h3>
-                <div class="flex flex-col gap-2">
-                    <button onclick="document.getElementById('bgUpload').click()" class="w-full py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-bold border border-white/10 transition flex items-center justify-center gap-2">
-                        <i class="fas fa-image"></i> NAHRAŤ POZADIE (16:9)
-                    </button>
-                    <button id="clearBgBtn" class="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-[10px] font-bold border border-red-500/20 hidden transition" onclick="clearBg()">
-                        VYMAZAŤ POZADIE
-                    </button>
-                    <input type="file" id="bgUpload" accept="image/*" class="hidden">
-                </div>
+            <div class="cyber-border p-5 flex flex-col gap-4">
+                <h3 class="cyber-font text-xs text-primary tracking-widest border-b border-primary/20 pb-2">IMAGING_SYSTEM</h3>
+                <button onclick="document.getElementById('bgUpload').click()" class="w-full py-3 bg-white/5 hover:bg-white/10 text-xs font-bold transition flex items-center justify-center gap-3">
+                    <i class="fas fa-terminal text-primary"></i> NAHRAŤ SCENÉRIU (16:9)
+                </button>
+                <button id="clearBgBtn" class="w-full py-1 text-danger text-[10px] font-bold hidden" onclick="clearBg()">[ DELETE_BACKGROUND ]</button>
+                <input type="file" id="bgUpload" accept="image/*" class="hidden">
             </div>
 
-            <div class="glass-panel p-4 sidebar flex-grow">
-                <h3 class="font-bold mb-4 uppercase text-[10px] text-primary tracking-widest text-center">Výber štýlu</h3>
-                <div id="proList" class="space-y-2">
-                    <!-- Štýly sa vygenerujú automaticky -->
+            <div class="cyber-border p-5 flex-grow">
+                <h3 class="cyber-font text-xs text-primary tracking-widest border-b border-primary/20 pb-2 mb-4">ENGINE_PRESETS</h3>
+                <div id="proList" class="sidebar space-y-2 pr-2">
+                    <!-- Dinamicky plnené -->
                 </div>
             </div>
         </div>
 
-        <!-- MAIN -->
+        <!-- MAIN AREA -->
         <div class="lg:w-3/4 flex flex-col gap-6">
-            <div class="glass-panel p-6 flex-grow flex flex-col relative">
+            <div class="cyber-border p-6 relative flex flex-grow flex-col">
                 
-                <!-- Export Progress Overlay -->
                 <div id="exportOverlay" class="progress-overlay hidden">
-                    <div class="cyber-font text-xl text-primary mb-4 animate-pulse">EXPORTUJEM VIDEO S POZADÍM...</div>
-                    <div class="w-64 h-2 bg-gray-800 rounded-full overflow-hidden">
-                        <div id="exportBar" class="h-full bg-primary w-0 transition-all duration-300"></div>
+                    <div class="cyber-font text-2xl text-primary mb-6 glitch-text italic">ENCODING_DATA_STREAM</div>
+                    <div class="w-80 h-1 bg-gray-900 border border-primary/30 relative">
+                        <div id="exportBar" class="h-full bg-primary transition-all duration-300 shadow-[0_0_15px_#fcee0a]"></div>
                     </div>
-                    <p id="exportStatus" class="text-xs text-gray-400 mt-2 uppercase tracking-widest">Video obsahuje hudbu, vizuál aj pozadie</p>
+                    <p id="exportStatus" class="text-[10px] text-primary mt-4 tracking-widest font-bold">SYNCING AUDIO_BUFFER TO VIDEO_FRAME</p>
                 </div>
 
-                <div class="flex justify-between items-center mb-4">
-                    <div class="flex gap-2">
-                        <button onclick="setFormat('normal')" id="btnNormal" class="px-4 py-1 rounded-full border border-primary text-[10px] cyber-font text-primary">WIDE 16:9</button>
-                        <button onclick="setFormat('shorts')" id="btnShorts" class="px-4 py-1 rounded-full border border-gray-600 text-[10px] cyber-font text-gray-400">SHORTS 9:16</button>
+                <div class="flex justify-between items-center mb-6">
+                    <div class="flex gap-4">
+                        <button onclick="setFormat('normal')" id="btnNormal" class="cyber-font text-[10px] text-primary hover:underline">WIDE_LINK</button>
+                        <button onclick="setFormat('shorts')" id="btnShorts" class="cyber-font text-[10px] text-gray-500 hover:text-primary transition">VERTICAL_LINK</button>
                     </div>
-                    <div id="statusTag" class="text-[10px] bg-cyan-500/20 px-3 py-1 rounded-full uppercase font-bold text-primary">Prémiový prístup aktívny</div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+                        <span class="text-[10px] cyber-font text-accent">SYSTEM_READY</span>
+                    </div>
                 </div>
 
                 <div class="visualizer-container" id="canvasWrapper">
                     <canvas id="visualizerCanvas"></canvas>
-                    <div id="dropZone" class="absolute inset-0 flex flex-col items-center justify-center bg-black/40 border-2 border-dashed border-primary/30 m-4 rounded-xl cursor-pointer hover:bg-black/60 transition z-20">
-                        <i class="fas fa-music text-4xl mb-4 text-primary"></i>
-                        <p class="cyber-font text-sm">VLOŽTE SKLADBU</p>
-                        <p class="text-[10px] text-gray-500 mt-2 italic">MP3 sa spojí s vaším pozadím</p>
+                    <div id="dropZone" class="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 cursor-pointer group">
+                        <div class="w-20 h-20 border-2 border-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <i class="fas fa-plus text-primary text-2xl"></i>
+                        </div>
+                        <p class="cyber-font text-sm mt-6 tracking-[0.5em] text-white">INSERT_TRACK</p>
                         <input type="file" id="audioUpload" accept="audio/*" class="hidden">
                     </div>
                 </div>
 
-                <div class="mt-6 flex flex-col md:flex-row gap-4">
-                    <div class="flex-grow glass-panel bg-black/40 p-4 rounded-xl flex items-center gap-4">
-                        <button id="playBtn" class="w-12 h-12 rounded-full bg-primary text-black flex items-center justify-center shadow-[0_0_20px_rgba(0,242,255,0.4)]">
-                            <i class="fas fa-play"></i>
+                <div class="mt-8 flex flex-col xl:flex-row gap-6 items-center">
+                    <div class="flex-grow w-full flex items-center gap-6 bg-white/5 p-4 border-l-2 border-primary">
+                        <button id="playBtn" class="w-14 h-14 bg-primary text-black flex items-center justify-center hover:scale-105 transition shadow-lg">
+                            <i class="fas fa-play text-xl"></i>
                         </button>
-                        <div class="flex-grow">
-                            <p id="trackName" class="text-xs text-gray-400 uppercase font-bold truncate max-w-[200px]">Ticho</p>
-                            <div class="h-1 bg-gray-800 rounded-full mt-2 overflow-hidden">
-                                <div id="progressBar" class="h-full bg-primary w-0"></div>
+                        <div class="flex-grow overflow-hidden">
+                            <p id="trackName" class="cyber-font text-xs text-primary truncate tracking-widest">NO_SIGNAL_RECEIVED</p>
+                            <div class="h-1 bg-white/10 mt-3 relative">
+                                <div id="progressBar" class="h-full bg-accent w-0 shadow-[0_0_10px_#00ff9f]"></div>
                             </div>
                         </div>
                     </div>
-                    <button id="autoExportBtn" class="px-10 btn-gradient rounded-xl cyber-font font-bold text-sm tracking-tighter py-4 shadow-lg flex items-center gap-3">
-                        <i class="fas fa-magic"></i> AUTOMATICKÝ EXPORT S HUDBOU
+                    <button id="autoExportBtn" class="w-full xl:w-auto px-12 py-5 btn-cyber cyber-font text-sm tracking-widest shadow-xl">
+                        COMPILE_AND_EXPORT
                     </button>
                 </div>
             </div>
@@ -186,11 +199,12 @@
     <audio id="mainAudio" crossorigin="anonymous"></audio>
 
     <script>
-        const DB_NAME = 'SpectrumProDB';
+        const DB_NAME = 'SpectrumCyberDB';
         const STORE_NAME = 'userSettings';
         let db, audioCtx, analyser, source, dataArray, animationId;
         let selectedStyle = 1;
         let bgImage = null;
+        let compressor; // Pre kvalitný zvuk bez pukania
 
         const canvas = document.getElementById('visualizerCanvas');
         const ctx = canvas.getContext('2d');
@@ -200,7 +214,6 @@
         const bgUpload = document.getElementById('bgUpload');
         const clearBgBtn = document.getElementById('clearBgBtn');
 
-        // IndexedDB
         async function initDB() {
             return new Promise(res => {
                 const req = indexedDB.open(DB_NAME, 1);
@@ -220,17 +233,12 @@
             await initDB();
             resize();
             
-            // Generovanie zoznamu - Všetko Zadarmo
             const list = document.getElementById('proList');
-            for(let i=1; i<=100; i++) {
+            for(let i=1; i<=50; i++) {
                 const d = document.createElement('div');
                 d.id = `eq-${i}`;
-                d.className = "eq-card p-3 bg-white/5 border border-white/5 rounded-xl flex items-center gap-3 group";
-                d.innerHTML = `
-                    <div class="w-8 h-8 rounded bg-primary/20 flex items-center justify-center text-[10px] text-primary font-bold">${i}</div>
-                    <span class="text-xs font-bold text-gray-300">Vizuál #${i}</span>
-                    <i class="fas fa-check-circle ml-auto text-[10px] text-primary opacity-50"></i>
-                `;
+                d.className = "eq-card p-4 flex items-center gap-4 cursor-pointer";
+                d.innerHTML = `<span class="cyber-font text-[10px] text-primary">#${String(i).padStart(2,'0')}</span><span class="text-xs uppercase font-bold tracking-widest">DRIVE_MODE_${i}</span>`;
                 d.onclick = () => selectEQ(i);
                 list.appendChild(d);
             }
@@ -238,14 +246,10 @@
             const s = await load('style'); 
             selectEQ(s || 1);
 
-            // Obnovenie pozadia z pamäte ak existuje
             const savedBg = await load('userBackground');
             if(savedBg) {
                 const img = new Image();
-                img.onload = () => {
-                    bgImage = img;
-                    clearBgBtn.classList.remove('hidden');
-                };
+                img.onload = () => { bgImage = img; clearBgBtn.classList.remove('hidden'); };
                 img.src = savedBg;
             }
         };
@@ -255,36 +259,27 @@
             canvas.height = canvas.offsetHeight * 2;
         }
 
-        // Nahrávanie pozadia
         bgUpload.onchange = e => {
             const f = e.target.files[0];
             if(f) {
                 const reader = new FileReader();
-                reader.onload = event => {
+                reader.onload = ev => {
                     const img = new Image();
-                    img.onload = () => {
-                        bgImage = img;
-                        save('userBackground', event.target.result);
-                        clearBgBtn.classList.remove('hidden');
-                    };
-                    img.src = event.target.result;
+                    img.onload = () => { bgImage = img; save('userBackground', ev.target.result); clearBgBtn.classList.remove('hidden'); };
+                    img.src = ev.target.result;
                 };
                 reader.readAsDataURL(f);
             }
         };
 
-        function clearBg() {
-            bgImage = null;
-            save('userBackground', null);
-            clearBgBtn.classList.add('hidden');
-        }
+        function clearBg() { bgImage = null; save('userBackground', null); clearBgBtn.classList.add('hidden'); }
 
         dropZone.onclick = () => audioUpload.click();
         audioUpload.onchange = e => {
             const f = e.target.files[0];
             if(f) {
                 audio.src = URL.createObjectURL(f);
-                document.getElementById('trackName').innerText = f.name;
+                document.getElementById('trackName').innerText = f.name.toUpperCase();
                 dropZone.classList.add('hidden');
                 initAudio();
             }
@@ -295,9 +290,21 @@
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 analyser = audioCtx.createAnalyser();
                 source = audioCtx.createMediaElementSource(audio);
-                source.connect(analyser);
+                
+                // --- HIGH QUALITY AUDIO ENGINE ---
+                // Compressor zabraňuje chrčaniu basov (clippingu)
+                compressor = audioCtx.createDynamicsCompressor();
+                compressor.threshold.setValueAtTime(-15, audioCtx.currentTime);
+                compressor.knee.setValueAtTime(40, audioCtx.currentTime);
+                compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+                compressor.attack.setValueAtTime(0.003, audioCtx.currentTime);
+                compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+
+                source.connect(compressor);
+                compressor.connect(analyser);
                 analyser.connect(audioCtx.destination);
-                analyser.fftSize = 512;
+                
+                analyser.fftSize = 1024;
                 dataArray = new Uint8Array(analyser.frequencyBinCount);
             }
             if (!animationId) draw();
@@ -305,24 +312,14 @@
 
         function draw() {
             animationId = requestAnimationFrame(draw);
-            
-            // Vymazanie plátna
             ctx.clearRect(0,0,canvas.width,canvas.height);
 
-            // Vykreslenie pozadia
             if(bgImage) {
-                // Zachovanie pomeru strán pri vykresľovaní obrázka
                 const scale = Math.max(canvas.width / bgImage.width, canvas.height / bgImage.height);
                 const x = (canvas.width / 2) - (bgImage.width / 2) * scale;
                 const y = (canvas.height / 2) - (bgImage.height / 2) * scale;
                 ctx.drawImage(bgImage, x, y, bgImage.width * scale, bgImage.height * scale);
-                
-                // Jemné stmavenie obrázka aby ekvalizér vynikol
-                ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                ctx.fillRect(0,0,canvas.width,canvas.height);
-            } else {
-                // Predvolené tmavé pozadie ak nie je obrázok
-                ctx.fillStyle = '#000';
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
                 ctx.fillRect(0,0,canvas.width,canvas.height);
             }
 
@@ -331,51 +328,66 @@
             
             const cx = canvas.width/2;
             const cy = canvas.height/2;
-            const r = 150;
+            const r = 160;
 
-            // Vizualizácia ekvalizéra
-            for(let i=0; i<dataArray.length; i++) {
+            // Basy (pre pulzovanie)
+            let bass = 0;
+            for(let i=0; i<8; i++) bass += dataArray[i];
+            bass = bass / 8;
+            const bassFactor = 1 + (bass/255) * 0.15;
+
+            // Vykreslenie moderného ekvalizéra
+            for(let i=0; i<dataArray.length; i += 2) {
                 const angle = (i/dataArray.length) * Math.PI * 2;
                 const val = dataArray[i];
-                const h = (val/255) * (100 + (selectedStyle % 10) * 15);
+                const h = (val/255) * (150 + (selectedStyle % 5) * 20);
                 
+                const x1 = cx + Math.cos(angle) * r * bassFactor;
+                const y1 = cy + Math.sin(angle) * r * bassFactor;
+                const x2 = cx + Math.cos(angle) * (r * bassFactor + h);
+                const y2 = cy + Math.sin(angle) * (r * bassFactor + h);
+
                 ctx.beginPath();
-                ctx.strokeStyle = `hsl(${(i/dataArray.length)*360 + selectedStyle*45}, 100%, 50%)`;
-                ctx.lineWidth = 4;
-                ctx.lineCap = 'round';
+                ctx.strokeStyle = `hsl(${(i/dataArray.length)*360 + selectedStyle*40}, 100%, 60%)`;
+                if (i % 4 === 0) ctx.strokeStyle = '#fcee0a'; // Cyberpunk akcent
                 
-                ctx.moveTo(cx + Math.cos(angle)*r, cy + Math.sin(angle)*r);
-                ctx.lineTo(cx + Math.cos(angle)*(r+h), cy + Math.sin(angle)*(r+h));
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.moveTo(x1, y1);
+                ctx.lineTo(x2, y2);
                 ctx.stroke();
+
+                // Pridanie jemného bodu na konci čiary
+                ctx.beginPath();
+                ctx.arc(x2, y2, 2, 0, Math.PI*2);
+                ctx.fillStyle = "#fff";
+                ctx.fill();
             }
             
-            // Stredový pulzujúci efekt
-            let bass = 0;
-            for(let i=0; i<10; i++) bass += dataArray[i];
-            bass = bass / 10;
-            
+            // Cyberpunk Core v strede
             ctx.beginPath();
-            ctx.arc(cx, cy, r - 5 + (bass/255)*10, 0, Math.PI*2);
-            ctx.fillStyle = `rgba(0, 242, 255, ${(bass/255)*0.3})`;
+            ctx.arc(cx, cy, (r - 10) * bassFactor, 0, Math.PI*2);
+            ctx.strokeStyle = '#fcee0a';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, (r - 20) * bassFactor, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(252, 238, 10, ${(bass/255)*0.2})`;
             ctx.fill();
         }
 
         function selectEQ(id) {
             selectedStyle = id;
             save('style', id);
-            
             document.querySelectorAll('.eq-card').forEach(el => el.classList.remove('active-style'));
             const active = document.getElementById(`eq-${id}`);
             if(active) active.classList.add('active-style');
-            
-            document.getElementById('statusTag').innerText = `Štýl ${id} Aktívny (FREE)`;
         }
 
-        // --- AUTOMATICKÝ EXPORT ---
         const autoExportBtn = document.getElementById('autoExportBtn');
         autoExportBtn.onclick = async () => {
-            if(!audio.src) return alert("Najprv nahraj hudbu!");
-            
+            if(!audio.src) return alert("NO_AUDIO_SOURCE_DETECTED");
             const overlay = document.getElementById('exportOverlay');
             const bar = document.getElementById('exportBar');
             overlay.classList.remove('hidden');
@@ -386,9 +398,10 @@
             const audioDest = audioCtx.createMediaStreamDestination();
             
             source.disconnect();
-            source.connect(analyser);
-            source.connect(audioDest);
-            source.connect(audioCtx.destination);
+            source.connect(compressor);
+            compressor.connect(analyser);
+            compressor.connect(audioDest);
+            analyser.connect(audioCtx.destination);
 
             const combined = new MediaStream([
                 ...canvasStream.getVideoTracks(),
@@ -397,24 +410,23 @@
 
             const recorder = new MediaRecorder(combined, { 
                 mimeType: 'video/webm;codecs=vp9,opus',
-                audioBitsPerSecond: 192000,
-                videoBitsPerSecond: 8000000 
+                audioBitsPerSecond: 320000, // Maximálna kvalita audia
+                videoBitsPerSecond: 12000000 
             });
 
             const chunks = [];
-            
             recorder.ondataavailable = e => chunks.push(e.data);
             recorder.onstop = () => {
                 const blob = new Blob(chunks, { type: 'video/mp4' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `SpectrumPro_Video_Export.mp4`;
+                a.download = `SpectrumPro_CyberExport_${Date.now()}.mp4`;
                 a.click();
                 overlay.classList.add('hidden');
                 
                 source.disconnect();
-                source.connect(analyser);
+                source.connect(compressor);
                 analyser.connect(audioCtx.destination);
             };
 
@@ -425,10 +437,8 @@
             const updateProg = setInterval(() => {
                 const p = (audio.currentTime / audio.duration) * 100;
                 bar.style.width = (p || 0) + '%';
-                
                 if(audio.ended || audio.paused) {
                     recorder.stop();
-                    audio.pause();
                     clearInterval(updateProg);
                 }
             }, 100);
@@ -448,12 +458,11 @@
             const w = document.getElementById('canvasWrapper');
             if(m==='shorts') w.classList.add('shorts-mode');
             else w.classList.remove('shorts-mode');
-            setTimeout(resize, 100);
+            setTimeout(resize, 150);
         }
 
         window.addEventListener('resize', resize);
     </script>
 </body>
 </html>
-
 
