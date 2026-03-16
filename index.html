@@ -234,11 +234,11 @@
             resize();
             
             const list = document.getElementById('proList');
-            for(let i=1; i<=50; i++) {
+            for(let i=1; i<=100; i++) {
                 const d = document.createElement('div');
                 d.id = `eq-${i}`;
                 d.className = "eq-card p-4 flex items-center gap-4 cursor-pointer";
-                d.innerHTML = `<span class="cyber-font text-[10px] text-primary">#${String(i).padStart(2,'0')}</span><span class="text-xs uppercase font-bold tracking-widest">DRIVE_MODE_${i}</span>`;
+                d.innerHTML = `<span class="cyber-font text-[10px] text-primary">#${String(i).padStart(3,'0')}</span><span class="text-xs uppercase font-bold tracking-widest">DRIVE_MODE_${i}</span>`;
                 d.onclick = () => selectEQ(i);
                 list.appendChild(d);
             }
